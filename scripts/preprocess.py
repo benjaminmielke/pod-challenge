@@ -52,9 +52,27 @@ def impute_weather(lst_cols):
                 df_pv_demand_weather.loc[i, lst_cols[c]] = mean([df_pv_demand_weather.loc[i-1, lst_cols[c]], df_pv_demand_weather.loc[i+1, lst_cols[c]]])
 # ------------------------------------------------------------------------------
 
+df_pv_demand_weather.head()
 
 # Impute NaN values for weather features
 impute_weather(df_pv_demand_weather.columns.values[5:])
+
+
+# ------------------------------------------------------------------------------
+def calc_mean(i, df, param=None):
+    '''Calculates mean for certain solar and temp columns from weather station and returns value'''
+    if param == 'solar':
+        return mean([df.loc[i, 'solar_location1'], df.loc[i, 'solar_location2'], df.loc[i, 'solar_location3'], df.loc[i, 'solar_location4'], df.loc[i, 'solar_location5'], df.loc[i, 'solar_location6']])
+    if param == 'temp':
+        return mean([df.loc[i, 'temp_location1'], df.loc[i, 'temp_location2'], df.loc[i, 'temp_location5'], df.loc[i, 'temp_location6']])
+# ------------------------------------------------------------------------------
+
+
+# Create and insert solar and temp mean columns for weather data
+lst_solar_mean = [calc_mean(i, df_pv_demand_weather, param='solar') for i in range(0, len(df_pv_demand_weather))]
+lst_temp_mean = [calc_mean(i, df_pv_demand_weather, param='temp') for i in range(0, len(df_pv_demand_weather))]
+df_pv_demand_weather.insert(5, 'temp_mean1256', lst_temp_mean)
+df_pv_demand_weather.insert(6, 'solar_mean123456', lst_solar_mean)
 
 # This block of code inserst a new column that contains the k_index(1-48) for each day.
 # It slices the HH:MM:SS of the datetime value and creates a dictionary with the
@@ -70,6 +88,12 @@ df_pv_demand_weather.insert(1, 'k_index', lst_k_index)
 df_pv_demand_weather['datetime'] = pd.to_datetime(df_pv_demand_weather['datetime'])
 df_pv_demand_weather.set_index('datetime',
                                inplace=True)
+
+# Engineer a few features breaking up the month, day of month and day of week
+# to investigate seasonal trends.
+df_pv_demand_weather.insert(0, 'day_of_week', df_pv_demand_weather.index.dayofweek)
+df_pv_demand_weather.insert(0, 'day_of_month', df_pv_demand_weather.index.day)
+df_pv_demand_weather.insert(0, 'month', df_pv_demand_weather.index.month)
 
 df_pv_demand_weather.dropna(axis=0, how='any', inplace=True)
 
