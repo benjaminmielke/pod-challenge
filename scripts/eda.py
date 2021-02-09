@@ -214,3 +214,102 @@ sns.heatmap(correlation, mask=mask, cmap=cmap, vmax=1, vmin=-1, center=0,
 plt.savefig(f'{path}/figs/correlation_matrix.png')
 
 # ------------------------------------------------------------------------------
+
+# Time Series Analysis on the panel data
+
+df = pd.read_pickle(f'{path}/pickles/df_set0_dropna.pkl')
+df.head()
+
+
+# Draw Plot
+def plot_df(df, x, y, title="",
+            xlabel='Date \n\n\n The general trend of the data shows higher demand during the \n late fall followed by a decreasing trend during the spring and summer months. \n There appears to be an outage or bad data in May, followed by a sharp spike upward in response',
+            ylabel='Value', dpi=100):
+    plt.figure(figsize=(16,5), dpi=dpi)
+    plt.plot(x, y, color='tab:red')
+    plt.gca().set(title=title, xlabel=xlabel, ylabel=ylabel)
+    plt.show()
+
+
+plot_df(df, x=df.index, y=df['demand_MW'], title=f'Half Hourly Demand from {df.index.values[0]} -- to -- {df.index.values[-1]}')
+
+# Draw Plot
+fig, axes = plt.subplots(1, 3, figsize=(25,7), dpi= 80)
+sns.boxplot(x='month', y='demand_MW', data=df, ax=axes[0])
+sns.boxplot(x='k_index', y='demand_MW', data=df, ax=axes[1])
+sns.boxplot(x='day_of_week', y='demand_MW', data=df, ax=axes[2])
+
+# Set Title
+axes[0].set_title('Month-wise Box Plot\n(The Seasonality)', fontsize=18);
+axes[1].set_title('Half-hourly-wise Box Plot\n(The Seasonality)', fontsize=18)
+axes[2].set_title('Dayof-week-wise Box Plot\n(The Seasonality)', fontsize=18)
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from statsmodels.tsa.seasonal import seasonal_decompose
+from dateutil.parser import parse
+
+df = df_pv_demand_weather[['demand_MW']]
+df.reset_index(inplace=True)
+df.info()
+df.index
+# multiplicative Decomposition
+#result_mul = seasonal_decompose(df['demand_MW'], model='multiplicative', extrapolate_trend='freq')
+
+# Additive Decomposition
+result_add = seasonal_decompose(df['demand_MW'], model='additive', extrapolate_trend='freq')
+
+# Plot
+plt.rcParams.update({'figure.figsize': (10,10)})
+#result_mul.plot().suptitle('Multiplicative Decompose', fontsize=22)
+result_add.plot().suptitle('Additive Decompose', fontsize=22)
+plt.show()
+
+
+# Confirm Stationarity
+from statsmodels.tsa.stattools import adfuller, kpss
+
+# ADF Test
+result = adfuller(df['demand_MW'].values, autolag='AIC')
+print(f'ADF Statistic: {result[0]}')
+print(f'p-value: {result[1]}')
+for key, value in result[4].items():
+    print('Critial Values:')
+    print(f'   {key}, {value}')
+
+# KPSS Test
+result = kpss(df['demand_MW'].values, regression='c')
+print('\nKPSS Statistic: %f' % result[0])
+print('p-value: %f' % result[1])
+for key, value in result[3].items():
+    print('Critial Values:')
+    print(f'   {key}, {value}')
+
+
+
+
+
+
+# Using statmodels: Subtracting the Trend Component.
+from statsmodels.tsa.seasonal import seasonal_decompose
+df = pd.read_csv('https://raw.githubusercontent.com/selva86/datasets/master/a10.csv', parse_dates=['date'], index_col='date')
+df.index
+result_mul = seasonal_decompose(df['value'], model='multiplicative', extrapolate_trend='freq')
+detrended = df.value.values - result_mul.trend
+plt.plot(detrended)
+plt.title('Drug Sales detrended by subtracting the trend component', fontsize=16)
