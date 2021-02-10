@@ -5,11 +5,12 @@ from statistics import mean
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import os
+
 pd.set_option('display.max_rows', 100)
 pd.set_option('display.max_columns', 200)
 
-path_data = 'C:/Users/okiem/OneDrive/Desktop/The_Project_Folder/Presumed_Open_Data_Science_Challenge/data/task0'
-
+path_data = os.path.abspath(os.path.join(os.getcwd(), 'data/task0'))
 # **Import Data**
 df_demand = pd.read_csv(f'{path_data}/demand_train_set0.csv')
 df_demand.head()
