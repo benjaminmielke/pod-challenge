@@ -29,12 +29,16 @@ def discharge_policy(charge, D):
     return None
 
 
+dataset_1 = pd.read_pickle(f'{path}/pickles/df_pv_demand_weather_dropna.pkl')
 df_demand = pd.read_csv(os.path.join(
-    os.getcwd(), 'data/task0/20180716_20180722_rfr_pred.csv'))
-
+    os.getcwd(), 'scripts/task0_rfr_pred.csv')
+# df_demand = pd.read_csv('predictions.csv')
 df_demand['d_index'] = np.array(df_demand.index + 1) // 48 + 1
 # Want to ideally turn this into a multi-index
-
+df_demand
+df_demand['Demand_Predicted(MW)'] = df_demand['Demand_Predicted']
+df_demand['k_index'] = np.mod((np.array(df_demand.index)), 48) + 1
+df_demand
 peak_indices_mask = (df_demand['k_index'] >= 32) & (df_demand['k_index'] < 43)
 demand_pred_peak_hours = df_demand[peak_indices_mask]['Demand_Predicted(MW)']
 

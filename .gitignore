@@ -1,1 +1,2 @@
 data/**/*.csv
+!data/task0/task0_rfr_pred.csv
