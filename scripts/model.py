@@ -5,6 +5,22 @@ import os
 from matplotlib import pyplot as plt
 
 
+def charge_policy(irradiance, solar_mw, capacity):
+    """
+    Returns the charging schedule for the batteries given predicted
+    solar power curve
+    Args:
+        solar_mw (list): predicted solar output over the charging period
+    """
+    # Want to charge to 6MWh, simple way to do that should be to charge
+    # proportionally based on how much irradiance is expected
+
+    c = np.sum(solar_mw)/capacity
+    # Note that c < 1, in which case we'll draw proportionally more power
+    # from the grid when solar is expected to be high then when it is low
+    return np.array(solar_mw)/c
+
+
 def discharge_policy(charge, D):
     """
     Returns optimal discharge schedule for a given demand profile
