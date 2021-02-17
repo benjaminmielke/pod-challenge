@@ -194,6 +194,8 @@ class PodChallenge():
            -day of week
            -day of month
            -month
+           -season: the season were decided by eyeballing the 'elbow' points in
+                    monthy trend graph(founf in figs folder, 'seasons.png')
 
         Args:
             df(DataFrame): dataframe to perform transformation on
@@ -204,6 +206,14 @@ class PodChallenge():
         df.insert(0, 'day_of_week', df.index.dayofweek)
         df.insert(0, 'day_of_month', df.index.day)
         df.insert(0, 'month', df.index.month)
+        df.insert(0, 'season', None)
+
+        # Insert columns that hot-codes season.
+        df['season']['2018-01-06 00:00:00':'2018-03-31 23:30:00'] = 1  # Winter/High
+        df['season']['2018-04-01 00:00:00':'2018-06-14 23:30:00'] = 2  #Spring/Transition
+        df['season']['2018-06-15 00:00:00':'2018-08-18 23:30:00'] = 3  # Summer/Low
+        df['season']['2018-08-19 00:00:00':] = 4  # Fall/Transition
+        df['season'][:'2018-01-05 23:30:00'] = 4  # Fall/Transition
 
         return df
 
@@ -323,8 +333,8 @@ class PodChallenge():
 
         '''
 
-        self.df_train_dm = self.df_train[['month', 'day_of_week', 'k_index', 'temp_mean1256', 'solar_mean123456', 'demand_MW']]
-        self.df_train_pv = self.df_train[['month', 'day_of_week', 'k_index', 'temp_mean1256', 'solar_mean123456', 'pv_power_mw']]
+        self.df_train_dm = self.df_train[['season', 'month', 'day_of_week', 'k_index', 'temp_mean1256', 'solar_mean123456', 'demand_MW']]
+        self.df_train_pv = self.df_train[['season', 'month', 'day_of_week', 'k_index', 'temp_mean1256', 'solar_mean123456', 'pv_power_mw']]
         # for i in range(len(self.df_train_pt)-336, len(self.df_train_pt)+1):
         #     for j in range(0, len(self.y_pred_rfr_ir)):
         #         self.df_train_dm.loc[len(self.df_train_dm)-336:len(self.df_train_dm)+1, 'irradiance_Wm-2'] = self.y_pred_rfr_ir
@@ -360,12 +370,12 @@ class PodChallenge():
 
         # Random Forest Regression Models
         rfr_dm = RandomForestRegressor(n_estimators=850,
-                                       criterion='mae',
+
                                        )
         rfr_dm.fit(self.X_dm_train, self.y_dm_train)
 
         rfr_pv = RandomForestRegressor(n_estimators=500,
-                                       criterion='mae',
+
                                        )
         rfr_pv.fit(self.X_pv_train, self.y_pv_train)
 
