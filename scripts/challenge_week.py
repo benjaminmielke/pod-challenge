@@ -444,12 +444,13 @@ class PodChallenge():
         Take taskweek dataframe, strip extra data,
         make sure datetime format is right, etc
         '''
+        self.df_submit['datetime'] = pd.to_datetime(self.df_submit['datetime'])
+        self.df_submit.set_index(['datetime'], inplace=True, drop=False)
         self.df_submit['charge_MW'] = self.df_taskweek['charge'] - \
             self.df_taskweek['discharge']
 
         # Remove second portion of datetime
-        self.df_submit['datetime'] = pd.to_datetime(
-                self.df_submit['datetime']).dt.strftime('%Y-%m-%d %H:%M')
+        self.df_submit['datetime'] = self.df_submit['datetime'].dt.strftime('%Y-%m-%d %H:%M')
 
         self.df_submit[['datetime', 'charge_MW']].to_csv(
             f'../data/task{self.set}/lightening_voltage_set{self.set}.csv', index=False)
