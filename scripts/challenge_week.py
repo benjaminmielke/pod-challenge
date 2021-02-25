@@ -450,7 +450,7 @@ class PodChallenge():
             self.df_taskweek['discharge']
 
         # Remove second portion of datetime
-        self.df_submit['datetime'] = self.df_submit['datetime'].dt.strftime('%Y-%m-%d %H:%M')
+        self.df_submit['datetime'] = self.df_submit['datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
 
         self.df_submit[['datetime', 'charge_MW']].to_csv(
             f'../data/task{self.set}/lightening_voltage_set{self.set}.csv', index=False)
