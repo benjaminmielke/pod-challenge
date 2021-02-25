@@ -8,6 +8,7 @@ import seaborn as sns
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 import os
+import pickle
 from statistics import mean
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error
@@ -23,8 +24,9 @@ class PodChallenge():
     '''
 
     def __init__(self):
-        os.chdir(os.path.dirname(os.getcwd()))
-        self.path = os.getcwd()
+        self.clf = {}
+        self.y_pred = {}
+        self.y_test = {}
 
     def import_task_data(self, set):
         ''' Reads in csv files into DataFrames from the specific task week data directory
@@ -90,6 +92,8 @@ class PodChallenge():
                                                   how='outer')
 
         print('Completed: Traind and tast_week dataframes merged with weather data')
+
+        self.df_train.sort_index(inplace=True)
 
         return self.df_train, self.df_taskweek
 
@@ -311,38 +315,38 @@ class PodChallenge():
                                                                              test_size=336,
                                                                              shuffle=False)
 
-        rfr_pt = RandomForestRegressor(n_estimators=100)
+        rfr_pt = RandomForestRegressor(n_estimators=20)
         rfr_pt.fit(self.X_pt_train, self.y_pt_train)
 
         self.y_pred_rfr_pt = rfr_pt.predict(self.X_pt_test)
 
         print('Completed: trained and predicted rfr for panel temp')
 
-    def rfr_model_train(self):
+    def load_model(self, model_name):
+        try:
+            with open(f'../data/task{self.set}/{model_name}.pkl', 'rb') as file:
+                return pickle.load(file)
+        except IOError:
+            print("No existing model saved, moving onto training")
+            return None
+
+    def rfr_model_train(self, y_var, features=None, n_estimators=100, load=False):
         '''
 
         '''
+        # set of default features
+        features = features or ['month', 'day_of_week', 'k_index',
+                        'temp_mean1256', 'solar_mean123456']
 
-        self.df_train_dm = self.df_train[['month', 'day_of_week', 'k_index', 'temp_mean1256', 'solar_mean123456', 'demand_MW']]
-        self.df_train_pv = self.df_train[['month', 'day_of_week', 'k_index', 'temp_mean1256', 'solar_mean123456', 'pv_power_mw']]
-        # for i in range(len(self.df_train_pt)-336, len(self.df_train_pt)+1):
-        #     for j in range(0, len(self.y_pred_rfr_ir)):
-        #         self.df_train_dm.loc[len(self.df_train_dm)-336:len(self.df_train_dm)+1, 'irradiance_Wm-2'] = self.y_pred_rfr_ir
-        #         self.df_train_pv.loc[len(self.df_train_pv)-336:len(self.df_train_pv)+1, 'irradiance_Wm-2'] = self.y_pred_rfr_ir
-        #         self.df_train_dm.loc[len(self.df_train_dm)-336:len(self.df_train_dm)+1, 'panel_temp_C'] = self.y_pred_rfr_pt
-        #         self.df_train_pv.loc[len(self.df_train_pv)-336:len(self.df_train_pv)+1, 'panel_temp_C'] = self.y_pred_rfr_pt
+        self.clf[y_var] = self.load_model(f'rfr_dm_n_{n_estimators}')
+        df_train = self.df_train[features + [y_var]] # 'demand_MW' or 'pv_power_mw'
 
         # Process dataset
-
         # make sure the dataset is sorted
-        self.df_train_dm.sort_index(inplace=True)
-        self.df_train_pv.sort_index(inplace=True)
 
         # Create independent and dependent variable matrices
-        X_dm = self.df_train_dm.iloc[:, :-1].values
-        y_dm = self.df_train_dm.iloc[:, -1].values
-        X_pv = self.df_train_pv.iloc[:, :-1].values
-        y_pv = self.df_train_pv.iloc[:, -1].values
+        X = self.df_train[features].values
+        y = self.df_train[y_var].values
 
         # #Encode Categorical Data IF Needed
         # #One Hot Encoder
@@ -351,70 +355,73 @@ class PodChallenge():
         # X_svr = np.array(ct.fit_transform(X_svr))
 
         # Split datasets without shuffling
-        self.X_dm_train, self.X_dm_test, self.y_dm_train, self.y_dm_test = train_test_split(X_dm, y_dm,
-                                                                             test_size=336,
-                                                                             shuffle=False)
-        self.X_pv_train, self.X_pv_test, self.y_pv_train, self.y_pv_test = train_test_split(X_pv, y_pv,
-                                                                             test_size=336,
-                                                                             shuffle=False)
+        # Test on the last week of data before task week
+        X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                    test_size=336, shuffle=False)
+        self.X_test = X_test
+        self.y_test[y_var] = y_test
+        if not self.clf[y_var]:
+            # Random Forest Regression Models
+            print(f"Training Random Forest Regressor for classifier on {y_var}")
+            self.clf[y_var] = RandomForestRegressor(n_estimators=n_estimators,
+                                           criterion='mae',
+                                           verbose=(os.getenv('LOG_LEVEL') or 0)
+                                           )
+            self.clf[y_var].fit(X_train, y_train)
+            # Random Forest Regression Prediction
+            pkl_filename = f'../data/task{self.set}/rfr_{y_var}_n_{n_estimators}.pkl'
+            with open(pkl_filename, 'wb') as file:
+                pickle.dump(self.clf[y_var], file)
 
-        # Random Forest Regression Models
-        rfr_dm = RandomForestRegressor(n_estimators=850,
-                                       criterion='mae',
-                                       )
-        rfr_dm.fit(self.X_dm_train, self.y_dm_train)
+        self.y_pred[y_var] = self.clf[y_var].predict(X_test)
 
-        rfr_pv = RandomForestRegressor(n_estimators=500,
-                                       criterion='mae',
-                                       )
-        rfr_pv.fit(self.X_pv_train, self.y_pv_train)
 
-        # Random Forest Regression Prediction
-        self.y_pred_rfr_dm = rfr_dm.predict(self.X_dm_test)
-        self.y_pred_rfr_pv = rfr_pv.predict(self.X_pv_test)
-
-    def evaluate_model(self):
+    def evaluate_model(self, y_var):
         '''
 
         '''
+        print('\t\t\t\tR_Squared \tAdjusted R_Squared \tMean Squared Error')
+        print(f'Random Forest Regression {y_var}:\t \
+            {r2_score(self.y_test[y_var], self.y_pred[y_var])}\t \
+            {1-(1-r2_score(self.y_test[y_var], self.y_pred[y_var]))*((len(self.y_test[y_var]) - 1)/(len(self.y_test[y_var])-len(self.X_test[0])-1))} \t\
+            {mean_squared_error(self.y_test[y_var], self.y_pred[y_var])}')
 
-        print('                               R_Squared           Adjusted R_Squared    Mean Squared Error')
-        print(f'Random Forest Regression Demand:     {r2_score(self.y_dm_test, self.y_pred_rfr_dm)}   {1-(1-r2_score(self.y_dm_test, self.y_pred_rfr_dm))*((len(self.y_dm_test)-1)/(len(self.y_dm_test)-len(self.X_dm_test[0])-1))}    {mean_squared_error(self.y_dm_test, self.y_pred_rfr_dm)}')
-        print(f'Random Forest Regression Power:     {r2_score(self.y_pv_test, self.y_pred_rfr_pv)}   {1-(1-r2_score(self.y_pv_test, self.y_pred_rfr_pv))*((len(self.y_pv_test)-1)/(len(self.y_pv_test)-len(self.X_dm_test[0])-1))}    {mean_squared_error(self.y_pv_test, self.y_pred_rfr_pv)}')
+        '''
+
 
     def plot_pred(self):
         '''
 
         '''
         fig, ax = plt.subplots(nrows=3, figsize=(40,25))
-        ax1 = sns.lineplot(x=range(1, len(self.y_dm_test)+1),
-                           y=self.y_dm_test,
+        ax1 = sns.lineplot(x=range(1, len(self.y_test['demand_MW'])+1),
+                           y=self.y_test['demand_MW'],
                            color='black',
                            ax=ax[0],
                            label='Actual Demand')
-        ax1 = sns.lineplot(x=range(1, len(self.y_dm_test)+1),
-                           y=self.y_pred_rfr_dm,
+        ax1 = sns.lineplot(x=range(1, len(self.y_pred['demand_MW'])+1),
+                           y=self.y_pred['demand_MW'],
                            color='red',
                            ax=ax[0],
                            label='Predicted Demand')
-        ax2 = sns.lineplot(x=range(1, len(self.y_dm_test)+1),
-                           y=self.y_pv_test,
+        ax2 = sns.lineplot(x=range(1, len(self.y_test['pv_power_mw'])+1),
+                           y=self.y_test['pv_power_mw'],
                            color='black',
                            ax=ax[1],
                            label='Actual PV_Power')
-        ax2 = sns.lineplot(x=range(1, len(self.y_dm_test)+1),
-                           y=self.y_pred_rfr_pv,
+        ax2 = sns.lineplot(x=range(1, len(self.y_pred['pv_power_mw'])+1),
+                           y=self.y_pred['pv_power_mw'],
                            color='orange',
                            ax=ax[1],
                            label='Predicted PV_Power')
-        ax3 = sns.lineplot(x=range(1, len(self.y_dm_test)+1),
-                           y=self.y_pred_rfr_dm,
-                           color='red',
-                           ax=ax[2],
-                           label='Predicted Demand')
-        ax3 = sns.lineplot(x=range(1, len(self.y_dm_test)+1),
-                           y=self.y_pred_rfr_pv,
-                           color='orange',
-                           ax=ax[2],
-                           label='Predicted PV_Power')
+        # ax3 = sns.lineplot(x=range(1, len(self.y_dm_test)+1),
+        #                    y=self.y_pred_rfr_dm,
+        #                    color='red',
+        #                    ax=ax[2],
+        #                    label='Predicted Demand')
+        # ax3 = sns.lineplot(x=range(1, len(self.y_dm_test)+1),
+        #                    y=self.y_pred_rfr_pv,
+        #                    color='orange',
+        #                    ax=ax[2],
+        #                    label='Predicted PV_Power')
         plt.show()
