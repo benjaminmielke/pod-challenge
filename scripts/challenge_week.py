@@ -36,13 +36,13 @@ class PodChallenge():
             DataFrames for each dataset
         '''
         self.set = set
-        self.df_demand = pd.read_csv(f'{self.path}/data/task{set}/demand_train_set{set}.csv')
+        self.df_demand = pd.read_csv(f'../data/task{set}/demand_train_set{set}.csv')
         print(f'Import complete: demand_train_set{set}.csv')
-        self.df_pv = pd.read_csv(f'{self.path}/data/task{set}/pv_train_set{set}.csv')
+        self.df_pv = pd.read_csv(f'../data/task{set}/pv_train_set{set}.csv')
         print(f'Import complete: pv_train_set{set}.csv')
-        self.df_weather = pd.read_csv(f'{self.path}/data/task{set}/weather_train_set{set}.csv')
+        self.df_weather = pd.read_csv(f'../data/task{set}/weather_train_set{set}.csv')
         print(f'Import complete: weather_train_set{set}.csv')
-        self.df_submit = pd.read_csv(f'{self.path}/data/task{set}/teamname_set{set}.csv')
+        self.df_submit = pd.read_csv(f'../data/task{set}/teamname_set{set}.csv')
         print(f'Import complete: teamname_set{set}.csvdemand_train_set{set}.csv')
 
         return self.df_demand, self.df_pv, self.df_weather, self.df_submit
@@ -257,8 +257,8 @@ class PodChallenge():
         In testing, needs to be more robust to catch different type of DFs being
         created.
         '''
-        # self.df_train.to_pickle(f'{self.path}/pickles/task{self.set}/df_train_dropna.pkl')
-        # self.df_taskweek.to_pickle(f'{self.path}/pickles/task{self.set}/df_taskweek.pkl')
+        # self.df_train.to_pickle(f'../pickles/task{self.set}/df_train_dropna.pkl')
+        # self.df_taskweek.to_pickle(f'../pickles/task{self.set}/df_taskweek.pkl')
 
     def rfr_model_irradiance(self):
         '''
