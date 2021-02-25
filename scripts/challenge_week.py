@@ -13,6 +13,7 @@ from statistics import mean
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.impute import KNNImputer
+from model import charge_policy, discharge_policy
 pd.set_option('display.max_columns', 500)
 
 class PodChallenge():
@@ -337,8 +338,8 @@ class PodChallenge():
         # set of default features
         features = features or ['month', 'day_of_week', 'k_index',
                         'temp_mean1256', 'solar_mean123456']
-
-        self.clf[y_var] = self.load_model(f'rfr_dm_n_{n_estimators}')
+        if load:
+            self.clf[y_var] = self.load_model(f'rfr_{y_var}_n_{n_estimators}')
         df_train = self.df_train[features + [y_var]] # 'demand_MW' or 'pv_power_mw'
 
         # Process dataset
@@ -386,8 +387,72 @@ class PodChallenge():
             {1-(1-r2_score(self.y_test[y_var], self.y_pred[y_var]))*((len(self.y_test[y_var]) - 1)/(len(self.y_test[y_var])-len(self.X_test[0])-1))} \t\
             {mean_squared_error(self.y_test[y_var], self.y_pred[y_var])}')
 
+    def calculate_battery_schedule(self, dm, pv, model='rfr'):
         '''
+        Calculuates charge and discharge schedule given predictions
+        '''
+        if model == 'rfr' and (dm is None or pv is None):
+            dm = self.y_pred['demand_MW']
+            pv = self.y_pred['pv_power_mw']
+        dm = np.array(dm)
+        pv = np.array(pv)
+        charge_indices_mask = (self.df_taskweek['k_index'] < 32)
+        peak_indices_mask = (self.df_taskweek['k_index'] >= 32) & (
+            self.df_taskweek['k_index'] < 43)
 
+        self.df_taskweek['charge'] = 0.0
+        self.df_taskweek['discharge'] = 0.0
+        for d in range(0, 7):
+            battery_capacity = 6  # MWh
+            charge_schedule = charge_policy(
+                None, list(pv[charge_indices_mask & (self.df_taskweek['day_of_week'] == d)]), battery_capacity)
+            discharge_schedule = discharge_policy(battery_capacity, list(
+                dm[peak_indices_mask & (self.df_taskweek['day_of_week'] == d)]))
+            self.df_taskweek.loc[charge_indices_mask & (
+                self.df_taskweek['day_of_week'] == d), 'charge'] = charge_schedule
+            self.df_taskweek.loc[peak_indices_mask & (
+                self.df_taskweek['day_of_week'] == d), 'discharge'] = discharge_schedule
+            assert(all(np.array(discharge_schedule) < 2.5))
+            assert(all(np.array(charge_schedule) < 2.5))
+            assert(np.abs(np.sum(charge_schedule) / 2 - battery_capacity) < 1e-4)
+            assert(np.abs(np.sum(discharge_schedule) / 2 - battery_capacity) < 1e-4)
+
+    def plot_taskweek(self):
+        '''
+        Plot charging and discharging schedule as calculated for task week
+        '''
+        fig, ax = plt.subplots(nrows=2, figsize=(40,25))
+        ax1 = sns.lineplot(x=self.df_taskweek.index,
+                           y=self.df_taskweek['discharge'],
+                           color='black',
+                           ax=ax[0],
+                           label='Discharge')
+        ax1 = sns.lineplot(x=self.df_taskweek.index,
+                           y=self.df_taskweek['charge'],
+                           color='red',
+                           ax=ax[0],
+                           label='Charge')
+        ax2 = sns.lineplot(x=self.df_taskweek.index,
+                            y=self.df_taskweek['solar_mean123456'],
+                            color='orange',
+                            ax=ax[1],
+                            label='Surround substation irradiance mean')
+        return plt, ax
+
+    def format_submit(self):
+        '''
+        Take taskweek dataframe, strip extra data,
+        make sure datetime format is right, etc
+        '''
+        self.df_submit['charge_MW'] = self.df_taskweek['charge'] - \
+            self.df_taskweek['discharge']
+
+        # Remove second portion of datetime
+        self.df_submit['datetime'] = pd.to_datetime(
+                self.df_submit['datetime']).dt.strftime('%Y-%m-%d %H:%M')
+
+        self.df_submit[['datetime', 'charge_MW']].to_csv(
+            f'../data/task{self.set}/lightening_voltage_set{self.set}.csv', index=False)
 
     def plot_pred(self):
         '''
