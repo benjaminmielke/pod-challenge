@@ -216,3 +216,38 @@ sns.heatmap(correlation, mask=mask, cmap=cmap, vmax=1, vmin=-1, center=0,
 plt.savefig(f'{path}/figs/correlation_matrix.png')
 
 # ------------------------------------------------------------------------------
+
+
+
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import numpy
+tw.df_train.index.values[3072]
+# plt.axvline(x='2018-06-01 00:00:00')
+plt.figure(figsize=(30,10))
+plt.plot(tw.df_train.index, tw.df_train['demand_MW'], color='red')
+plt.plot(tw.df_train.index, tw.df_train['demand_MW'].rolling(window=1600).mean(), color='blue', linewidth=3)
+plt.axvline(x=numpy.datetime64('2018-03-24T00:00:00.000000000', linewidth=5, color='black')
+plt.axvline(x=numpy.datetime64('2018-06-15T00:00:00.000000000'), linewidth=5, color='black')
+plt.axvline(x=numpy.datetime64('2018-08-20T00:00:00.000000000'), linewidth=5, color='black')
+plt.axvline(x=numpy.datetime64('2018-01-06T00:00:00.000000000'), linewidth=5, color='black')
+plt.axvline(x=numpy.datetime64('2018-07-16T00:00:00.000000000'), linewidth=6, color='lime', ymax=.7)
+plt.axvline(x=numpy.datetime64('2018-07-22T00:00:00.000000000'), linewidth=6, color='lime', ymax=.7)
+plt.axvline(x=numpy.datetime64('2018-10-16T00:00:00.000000000'), linewidth=6, color='lime', ymax=.7)
+plt.axvline(x=numpy.datetime64('2018-10-22T00:00:00.000000000'), linewidth=6, color='lime', ymax=.7)
+plt.annotate(text='Winter/High', xy=(numpy.datetime64('2018-02-01T00:00:00.000000000'),6.3), fontsize=25)
+plt.annotate(text='Spring/Transistion', xy=(numpy.datetime64('2018-04-10T00:00:00.000000000'),6.3), fontsize=25)
+plt.annotate(text='Summer/Low', xy=(numpy.datetime64('2018-07-05T00:00:00.000000000'),6.3), fontsize=25)
+plt.annotate(text='Fall/Transition', xy=(numpy.datetime64('2018-09-10T00:00:00.000000000'),6.3), fontsize=25)
+plt.annotate(text='Fall/Transition', xy=(numpy.datetime64('2017-11-05T00:00:00.000000000'),6.3), fontsize=25)
+plt.annotate(text='Task0', xy=(numpy.datetime64('2018-07-16T00:00:00.000000000'),4.8), fontsize=18)
+plt.annotate(text='Task1', xy=(numpy.datetime64('2018-10-16T00:00:00.000000000'),4.8), fontsize=18)
+plt.xlabel('Date', fontsize=15)
+plt.ylabel('Demand(MW)', fontsize=15)
+plt.title('Demand Time Series with Monthly Trend Line', fontsize=30)
+ax = plt.gca()
+ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%Y'))
+ax.set_facecolor('lightgray')
+plt.gcf().autofmt_xdate()
+plt.savefig('C:/Users/okiem/github/pod-challenge/figs/seasons.png')
