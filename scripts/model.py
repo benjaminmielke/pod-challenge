@@ -21,6 +21,48 @@ def charge_policy(irradiance, solar_mw, capacity):
     return np.array(solar_mw) / c
 
 
+def charge_by_quantile(solar_mw_low, solar_mw_med, capacity, charge_threshold=2.5):
+    """
+    Returns the charging schedule for batteries given a lower,
+    more assured amount of expected solar power, and then a mid or expected
+    solar power amount
+    Args:
+        solar_mw_low (list): pick a lower quantile prediction
+        solar_mw_med (list): either 50% quantile or output of some other
+            predictive model which estimates median or expected value
+    """
+    capacity = 2 * capacity  # MWh to MW-half-hours
+    solar_mw_low = np.array(solar_mw_low)
+    solar_mw_med = np.array(solar_mw_med)
+    # First, allocate as much charge as possible to the solar_mw_low
+    total_min_solar = np.sum(solar_mw_low)
+    schedule = None
+    if total_min_solar > capacity:
+        schedule = charge_policy(None, solar_mw_low, capacity/2)
+    else:
+        low_capture = solar_mw_low
+        remaining_available = solar_mw_med - solar_mw_low
+        remaining_capacity = capacity - total_min_solar
+        med_capture = charge_policy(None, remaining_available, remaining_capacity/2)
+        schedule = low_capture + med_capture
+
+    # Now we want to deal with all periods that have charges > threshold
+    excess = 1.0
+    while excess > 1.0e-2:
+        excess = np.sum(schedule[schedule - np.full(schedule.shape, 2.5) > 0] - 2.5)
+        capped_schedule = np.where(schedule > 2.5, 2.5, schedule)
+        # hack - set available power to 0 where we've hitting charging threshold
+        remaining_available = np.where(schedule > 2.5, 0, remaining_available)
+        if excess > 1.0e-2:
+            reallocate_remainder = charge_policy(None, remaining_available, excess/2)
+            capped_schedule
+        schedule = capped_schedule
+    return schedule
+
+
+
+
+
 def discharge_policy(charge, D):
     """
     Returns optimal discharge schedule for a given demand profile

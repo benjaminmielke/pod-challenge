@@ -13,7 +13,7 @@ from statistics import mean
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.impute import KNNImputer
-from model import charge_policy, discharge_policy
+from model import charge_policy, discharge_policy, charge_by_quantile
 pd.set_option('display.max_columns', 500)
 
 class PodChallenge():
@@ -414,6 +414,37 @@ class PodChallenge():
                 self.df_taskweek['day_of_week'] == d), 'discharge'] = discharge_schedule
             assert(all(np.array(discharge_schedule) < 2.5))
             assert(all(np.array(charge_schedule) < 2.5))
+            assert(np.abs(np.sum(charge_schedule) / 2 - battery_capacity) < 1e-4)
+            assert(np.abs(np.sum(discharge_schedule) / 2 - battery_capacity) < 1e-4)
+
+    def calculate_battery_schedule_quantiles(self, dm, pv_low, pv_med):
+        '''
+        Calculuates charge and discharge schedule given predictions
+        Will want to change this function in the future to taken in arbitrary
+        no. of quantiles instead of just pv_low and pv_med
+        '''
+        dm = np.array(dm)
+        pv_low = np.array(pv_low)
+        pv_med = np.array(pv_med)
+        charge_indices_mask = (self.df_taskweek['k_index'] < 32)
+        peak_indices_mask = (self.df_taskweek['k_index'] >= 32) & (
+            self.df_taskweek['k_index'] < 43)
+
+        self.df_taskweek['charge'] = 0.0
+        self.df_taskweek['discharge'] = 0.0
+        for d in range(0, 7):
+            battery_capacity = 6  # MWh
+            charge_schedule = charge_by_quantile(list(pv_low[charge_indices_mask & (self.df_taskweek['day_of_week'] == d)]),
+                list(pv_med[charge_indices_mask & (self.df_taskweek['day_of_week'] == d)]),
+                 battery_capacity)
+            discharge_schedule = discharge_policy(battery_capacity, list(
+                dm[peak_indices_mask & (self.df_taskweek['day_of_week'] == d)]))
+            self.df_taskweek.loc[charge_indices_mask & (
+                self.df_taskweek['day_of_week'] == d), 'charge'] = charge_schedule
+            self.df_taskweek.loc[peak_indices_mask & (
+                self.df_taskweek['day_of_week'] == d), 'discharge'] = discharge_schedule
+            assert(all(np.array(discharge_schedule) <= 2.5))
+            assert(all(np.array(charge_schedule) <= 2.5))
             assert(np.abs(np.sum(charge_schedule) / 2 - battery_capacity) < 1e-4)
             assert(np.abs(np.sum(discharge_schedule) / 2 - battery_capacity) < 1e-4)
 
